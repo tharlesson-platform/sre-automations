@@ -324,3 +324,34 @@ Ao reutilizar ou derivar este material:
 ## Autor
 **Tharlesson**
 GitHub: https://github.com/tharlesson
+
+## CI de validação local isolada
+
+`CI / terraform-and-tests` e `guardrails` usam somente a label exclusiva
+`sre-automations-run-${{ github.run_id }}`, com timeout de 20 minutos,
+checkout da action por commit completo e head exato do PR/SHA do push,
+sem persistir credenciais. Os gatilhos CI em `master`/PR e guardrails em
+`main`/`master` são preservados; CI explicita `contents: read`.
+Admissão exata por repo/workflow/job/evento/SHA pertence ao controlador separado;
+este patch não instala nem admite fonte ou altera Code Quality existente.
+
+Antes da validação, o job exige marker em VM Linux ARM64, nega mounts
+compartilhados, SSH agent, credenciais/perfis AWS e variáveis do gateway local de artifacts.
+Metadata AWS fica desativada, com arquivos AWS de configuração/credenciais nulos.
+Os testes existentes podem criar credenciais fictícias internas ao processo de teste;
+nenhuma credencial cloud real deve ser fornecida ao runner.
+
+Terraform 1.9.8 é baixado do endpoint oficial Linux ARM64, com SHA256 fixo
+conferido antes da extração e instalação apenas em `RUNNER_TEMP`. Setup Python
+3.12 também usa action por commit completo. São mantidos `requirements-dev.txt`,
+`pytest -q tests`, fmt recursivo e os loops de **todos** os módulos/stacks com
+`init -backend=false -input=false -no-color` e `validate -no-color`.
+Não há `plan`, `apply`, deploy, assume-role, OIDC ou upload local nesta CI.
+O exemplo `.github/workflows/terraform-ci.yml.example` permanece inalterado e inativo.
+
+Provas locais usam ferramentas Darwin ARM64 em cópia/cache próprios, HOME isolado
+e TF_DATA_DIR por root, sem herdar ambiente/perfis/SSO AWS nem ler ~/.aws;
+os testes Lambda têm bloqueio de conexões de saída no processo do harness.
+Validação local não comprova recursos AWS nem a futura execução Linux ARM64.
+Escopo de fonte: `ci.yml`, `guardrails.yml` e README; revisão independente antes
+de publicar. Rollback desta fase é não publicar/admitir, sem mutação runtime a desfazer.
